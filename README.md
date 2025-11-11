@@ -178,19 +178,6 @@ The application processes historical correspondence data in **TEI XML format**. 
 - Multi-modal network analysis examples
 - Interactive dashboard development patterns
 
-## 🌐 Deployment
-
-### **Hugging Face Spaces (Recommended):**
-1. Create new Space at https://huggingface.co/spaces
-2. Select "Streamlit" SDK
-3. Upload application files
-4. Auto-deployment in 2-5 minutes
-
-### **Alternative Platforms:**
-- **Streamlit Cloud** - GitHub integration
-- **Docker** - Containerized deployment
-- **Local hosting** - Development and private use
-
 ## 📈 Performance
 
 - **Startup time:** ~10-30 seconds (data loading)
@@ -222,3 +209,4 @@ For questions about usage, data formats, or technical issues:
 **Built with ❤️ for Digital Humanities Research**
 
 *Transforming historical correspondence into interactive network insights*
+
