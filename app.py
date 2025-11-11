@@ -7,8 +7,12 @@ import plotly.express as px
 import os
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 
-# Import the new module
+# Import the new modules
 from network_analysis import show_network_analysis
+from geographical_network import show_geographical_network
+from topics_keywords_analysis import show_topics_keywords_analysis
+from commodity_analysis import show_commodity_network_analysis
+from temporal_analysis import show_temporal_network_analysis
 
 st.set_page_config(page_title="Визуализация на исторически писма", layout="wide")
 
@@ -104,12 +108,16 @@ data = load_data(XML_FILE)
 st.title("Визуализация на исторически писма (TEI XML)")
 
 # --- Define Tabs ---
-tab_docs, tab_map, tab_stats, tab_search, tab_network = st.tabs([
+tab_docs, tab_map, tab_stats, tab_search, tab_network, tab_geo_network, tab_topics, tab_commodity, tab_temporal = st.tabs([
     "Документи", 
     "Карта", 
     "Статистика", 
     "Търсене по Shelfmark", 
-    "Мрежов анализ"
+    "Мрежов анализ",
+    "Географска мрежа",
+    "Теми и думи",
+    "Стокови потоци",
+    "Темпорален анализ"
 ])
 
 # ---------------------------------------------------------------------------------
@@ -361,7 +369,7 @@ with tab_stats:
         sender_counts = df['sender_name'].value_counts().reset_index()
         sender_counts.columns = ['sender_name', 'count']
         fig_pie_sender = px.pie(sender_counts, names='sender_name', values='count', title='Брой документи по изпращач')
-        st.plotly_chart(fig_pie_sender, use_container_width=True)
+        st.plotly_chart(fig_pie_sender, width='stretch')
 
         st.markdown("---")
 
@@ -545,3 +553,35 @@ with tab_network:
     st.header("Мрежов анализ на кореспонденциите")
     # Call our newly created function from network_analysis.py
     show_network_analysis(data)
+
+# ---------------------------------------------------------------------------------
+# 6) GEOGRAPHICAL NETWORK TAB
+# ---------------------------------------------------------------------------------
+with tab_geo_network:
+    st.header("Географска мрежа на места")
+    # Call our newly created function from geographical_network.py
+    show_geographical_network(data)
+
+# ---------------------------------------------------------------------------------
+# 7) TOPICS AND KEYWORDS ANALYSIS TAB
+# ---------------------------------------------------------------------------------
+with tab_topics:
+    st.header("Анализ на теми и ключови думи")
+    # Call function from topics_keywords_analysis.py
+    show_topics_keywords_analysis(data)
+
+# ---------------------------------------------------------------------------------
+# 8) COMMODITY NETWORK FLOW TAB
+# ---------------------------------------------------------------------------------
+with tab_commodity:
+    st.header("Анализ на стоковите потоци")
+    # Call function from commodity_analysis.py
+    show_commodity_network_analysis(data)
+
+# ---------------------------------------------------------------------------------
+# 9) TEMPORAL NETWORK ANALYSIS TAB
+# ---------------------------------------------------------------------------------
+with tab_temporal:
+    st.header("Темпорален анализ на комуникациите")
+    # Call function from temporal_analysis.py
+    show_temporal_network_analysis(data)
