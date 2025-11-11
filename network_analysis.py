@@ -2,15 +2,68 @@ import streamlit as st
 import networkx as nx
 from pyvis.network import Network
 import streamlit.components.v1 as components
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 
 def show_network_analysis(data):
     """
-    Creates and displays an interactive network graph of correspondences (sender -> addressee).
-    Nodes are colored based on their total number of connections and both nodes and edges are translucent.
+    Enhanced network analysis of correspondences with sidebar controls and metrics.
+    Nodes represent people, edges represent correspondence relationships.
 
     :param data: List of dictionaries, each representing a single letter's data.
     """
-    st.subheader("--------")
+    st.header("📬 Мрежов анализ на кореспонденциите")
+    st.markdown("Анализ на мрежата от кореспонденции между различни лица")
+    
+    # Main page controls
+    st.subheader("🎛️ Настройки на мрежата")
+    
+    # Create columns for control layout
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        # Minimum connections filter
+        min_connections = st.slider(
+            "Минимален брой връзки:",
+            min_value=1,
+            max_value=10,
+            value=1,
+            help="Показвай само лица с поне толкова връзки",
+            key="network_min_connections"
+        )
+    
+    with col2:
+        # Layout algorithm
+        layout_algorithm = st.selectbox(
+            "Алгоритъм за подредба:",
+            ["forceAtlas2Based", "repulsion", "hierarchicalRepulsion", "stabilization"],
+            index=0,
+            help="Различни алгоритми за подредба на мрежата",
+            key="network_layout_algorithm"
+        )
+    
+    with col3:
+        # Node size scaling
+        node_size_factor = st.slider(
+            "Размер на възлите:",
+            min_value=10,
+            max_value=50,
+            value=25,
+            help="Скалиране на размера на възлите",
+            key="network_node_size"
+        )
+    
+    with col4:
+        # Show edge weights
+        show_edge_weights = st.checkbox(
+            "Показвай тегла на връзките",
+            value=True,
+            help="Показвай броя писма между лицата",
+            key="network_show_weights"
+        )
+    
+    st.divider()  # Add a visual separator
 
     # --- 1. Create a Directed Graph from the Data ---
     G = nx.DiGraph()
@@ -26,40 +79,81 @@ def show_network_analysis(data):
     for (sender, addressee), weight in edge_weights.items():
         G.add_edge(sender, addressee, weight=weight)
 
-    # --- 2. Build a PyVis Network from the NetworkX Graph ---
+    # Filter nodes by minimum connections
+    degree_dict = {node: G.in_degree(node) + G.out_degree(node) for node in G.nodes()}
+    filtered_nodes = [node for node, degree in degree_dict.items() if degree >= min_connections]
+    G_filtered = G.subgraph(filtered_nodes).copy()
+
+    if len(G_filtered.nodes()) == 0:
+        st.warning("🚫 Няма данни за показване с текущите настройки. Намалете минималния брой връзки.")
+        return
+
+    # --- 2. Display Network Metrics ---
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            label="👥 Общо лица",
+            value=len(G_filtered.nodes()),
+            help="Брой уникални лица в мрежата"
+        )
+    
+    with col2:
+        st.metric(
+            label="📫 Общо връзки",
+            value=len(G_filtered.edges()),
+            help="Брой връзки между лицата"
+        )
+    
+    with col3:
+        total_letters = sum(data.get('weight', 1) for _, _, data in G_filtered.edges(data=True))
+        st.metric(
+            label="💌 Общо писма",
+            value=total_letters,
+            help="Общ брой разменени писма"
+        )
+    
+    with col4:
+        if len(G_filtered.nodes()) > 1:
+            density = nx.density(G_filtered)
+            st.metric(
+                label="🔗 Плътност",
+                value=f"{density:.3f}",
+                help="Плътност на мрежата (0-1)"
+            )
+
+    # --- 3. Build a PyVis Network from the NetworkX Graph ---
     net = Network(
-        height='600px',
+        height='700px',
         width='100%',
         notebook=False,  
         directed=True,   
-        bgcolor='#ffffff',
+        bgcolor='#fafafa',
         font_color='black'
     )
-    net.from_nx(G)
+    net.from_nx(G_filtered)
 
-    # --- 3. Color Nodes Based on Total Connections (Degree) ---
-    degree_dict = {node: G.in_degree(node) + G.out_degree(node) for node in G.nodes()}
+    # --- 4. Color Nodes Based on Total Connections (Degree) ---
+    degree_dict_filtered = {node: G_filtered.in_degree(node) + G_filtered.out_degree(node) 
+                           for node in G_filtered.nodes()}
     
-    if degree_dict:
-        min_deg = min(degree_dict.values())
-        max_deg = max(degree_dict.values())
+    if degree_dict_filtered:
+        min_deg = min(degree_dict_filtered.values())
+        max_deg = max(degree_dict_filtered.values())
     else:
         min_deg, max_deg = 0, 1 
 
     def get_node_color(degree):
         """
-        Generates a translucent color between light blue and dark blue based on the node's degree.
-
-        :param degree: The degree of the node.
-        :return: Dictionary with background and border colors including opacity.
+        Generates a color based on the node's degree.
         """
         if min_deg == max_deg:
-            color_hex = '#5b86c5' 
+            color_hex = '#2E86AB' 
         else:
             ratio = (degree - min_deg) / (max_deg - min_deg)
-            # Light Blue (#ADD8E6) to Dark Blue (#00008B)
+            # Light Blue to Dark Blue gradient
             r1, g1, b1 = 173, 216, 230  
-            r2, g2, b2 = 0, 0, 139      
+            r2, g2, b2 = 46, 134, 171      
             r = int(r1 + (r2 - r1) * ratio)
             g = int(g1 + (g2 - g1) * ratio)
             b = int(b1 + (b2 - b1) * ratio)
@@ -67,121 +161,343 @@ def show_network_analysis(data):
 
         return {
             'background': color_hex,
-            'border': color_hex,
+            'border': '#1e3d59',
             'highlight': {
                 'background': color_hex,
-                'border': color_hex
-            },
-            'opacity': 0.8,    # 80% opacity for nodes
-            'borderWidth': 2
+                'border': '#1e3d59'
+            }
         }
 
-    # Apply colors to each node based on their degree
+    # Apply colors and sizes to each node
     for node in net.nodes:
         node_label = node["id"]
-        degree = degree_dict.get(node_label, 0)
+        degree = degree_dict_filtered.get(node_label, 0)
         node["color"] = get_node_color(degree)
-        # Display degree on hover
-        node["title"] = f"{node_label} (Connections: {degree})"
-
-    # --- 4. Style Edges with Different Colors and Translucency ---
-    def get_edge_color():
+        node["size"] = max(node_size_factor + (degree * 5), 15)
+        
+        # Enhanced node information
+        in_degree = G_filtered.in_degree(node_label)
+        out_degree = G_filtered.out_degree(node_label)
+        node["title"] = f"""
+        <b>{node_label}</b><br>
+        Общо връзки: {degree}<br>
+        Получени: {in_degree}<br>
+        Изпратени: {out_degree}
         """
-        Returns a consistent translucent color for all edges.
 
-        :return: Dictionary with edge color and opacity.
-        """
-        return {
-            'color': '#888888',  # Gray color for edges
-            'opacity': 0.5        # 50% opacity for edges
-        }
+    # --- 5. Style Edges with Different Colors and Weights ---
+    max_weight = max([G_filtered[u][v].get('weight', 1) for u, v in G_filtered.edges()]) if G_filtered.edges() else 1
 
-    # Apply styles to each edge
     for edge in net.edges:
-        edge["color"] = get_edge_color()
         src, dst = edge["from"], edge["to"]
-        weight = G[src][dst].get('weight', 1)
-        edge["title"] = f"Letters exchanged: {weight}"
+        weight = G_filtered[src][dst].get('weight', 1)
+        
+        # Edge color based on weight
+        intensity = weight / max_weight
+        edge_color = f'rgba(136, 136, 136, {0.3 + intensity * 0.7})'
+        edge["color"] = edge_color
+        
+        # Edge width based on weight
+        edge["width"] = max(1, weight * 2)
+        
+        # Edge title with weight information
+        if show_edge_weights:
+            edge["title"] = f"{src} → {dst}<br>Писма: {weight}"
+        else:
+            edge["title"] = f"{src} → {dst}"
 
-    # --- 5. Configure Physics for Network Stability ---    
-    net.set_options("""
-    var options = {
-      "physics": {
-        "enabled": true,
-        "solver": "forceAtlas2Based",
-        "forceAtlas2Based": {
-          "gravitationalConstant": -50,
-          "centralGravity": 0.003,
-          "springConstant": 0.08,
-          "springLength": 100,
-          "damping": 0.4
-        },
-        "stabilization": {
-          "iterations": 1000
+    # --- 6. Configure Physics Based on Selected Algorithm ---
+    physics_options = {
+        "forceAtlas2Based": """
+        {
+          "physics": {
+            "enabled": true,
+            "solver": "forceAtlas2Based",
+            "forceAtlas2Based": {
+              "gravitationalConstant": -50,
+              "centralGravity": 0.003,
+              "springConstant": 0.08,
+              "springLength": 100,
+              "damping": 0.4
+            },
+            "stabilization": {"iterations": 1000}
+          },
+          "nodes": {
+            "shape": "dot",
+            "font": {
+              "size": 14,
+              "color": "#2c3e50"
+            },
+            "borderWidth": 2,
+            "shadow": true
+          },
+          "edges": {
+            "arrows": {
+              "to": { "enabled": true, "scaleFactor": 1.2 }
+            },
+            "smooth": {
+              "enabled": true,
+              "type": "dynamic"
+            },
+            "shadow": true
+          },
+          "interaction": {
+            "hover": true,
+            "tooltipDelay": 300
+          }
         }
-      },
-      "nodes": {
-        "shape": "dot",
-        "font": {
-          "size": 12
+        """,
+        "repulsion": """
+        {
+          "physics": {
+            "enabled": true,
+            "solver": "repulsion",
+            "repulsion": {
+              "nodeDistance": 150,
+              "centralGravity": 0.05,
+              "springLength": 200,
+              "springConstant": 0.05,
+              "damping": 0.09
+            },
+            "stabilization": {"iterations": 500}
+          },
+          "nodes": {
+            "shape": "dot",
+            "font": {
+              "size": 14,
+              "color": "#2c3e50"
+            },
+            "borderWidth": 2,
+            "shadow": true
+          },
+          "edges": {
+            "arrows": {
+              "to": { "enabled": true, "scaleFactor": 1.2 }
+            },
+            "smooth": {
+              "enabled": true,
+              "type": "dynamic"
+            },
+            "shadow": true
+          },
+          "interaction": {
+            "hover": true,
+            "tooltipDelay": 300
+          }
         }
-      },
-      "edges": {
-        "arrows": {
-          "to": { "enabled": true }
-        },
-        "smooth": false
-      }
+        """,
+        "hierarchicalRepulsion": """
+        {
+          "physics": {
+            "enabled": true,
+            "solver": "hierarchicalRepulsion",
+            "hierarchicalRepulsion": {
+              "nodeDistance": 120,
+              "centralGravity": 0.0,
+              "springLength": 100,
+              "springConstant": 0.01,
+              "damping": 0.09
+            },
+            "stabilization": {"iterations": 300}
+          },
+          "nodes": {
+            "shape": "dot",
+            "font": {
+              "size": 14,
+              "color": "#2c3e50"
+            },
+            "borderWidth": 2,
+            "shadow": true
+          },
+          "edges": {
+            "arrows": {
+              "to": { "enabled": true, "scaleFactor": 1.2 }
+            },
+            "smooth": {
+              "enabled": true,
+              "type": "dynamic"
+            },
+            "shadow": true
+          },
+          "interaction": {
+            "hover": true,
+            "tooltipDelay": 300
+          }
+        }
+        """,
+        "stabilization": """
+        {
+          "physics": {
+            "enabled": false
+          },
+          "layout": {
+            "randomSeed": 2
+          },
+          "nodes": {
+            "shape": "dot",
+            "font": {
+              "size": 14,
+              "color": "#2c3e50"
+            },
+            "borderWidth": 2,
+            "shadow": true
+          },
+          "edges": {
+            "arrows": {
+              "to": { "enabled": true, "scaleFactor": 1.2 }
+            },
+            "smooth": {
+              "enabled": true,
+              "type": "dynamic"
+            },
+            "shadow": true
+          },
+          "interaction": {
+            "hover": true,
+            "tooltipDelay": 300
+          }
+        }
+        """
     }
-    """)
 
-    # --- 6. Render the Network in Streamlit Within a Resizable Container ---
+    selected_options = physics_options.get(layout_algorithm, physics_options["forceAtlas2Based"])
+    net.set_options(selected_options)
+
+    # --- 7. Render the Network in Streamlit ---
+    st.subheader("🔗 Интерактивна мрежа")
+    
     try:
-        # Generate HTML content as a string
-        html_content = net.generate_html()  # For pyvis versions < 0.5.1
-        # For pyvis versions >= 0.5.1, use:
-        # html_content = net.to_html()
-
-        # Create a resizable container using a div with CSS
-        resizable_html = f"""
+        # Generate HTML content
+        html_content = net.generate_html()
+        
+        # Enhanced container with better styling
+        enhanced_html = f"""
+        <div style="
+            width: 100%;
+            height: 720px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            padding: 5px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        ">
+            {html_content}
+        </div>
+        """
+        
+        components.html(enhanced_html, height=740, scrolling=True)
+        
+    except AttributeError:
+        try:
+            html_content = net.to_html()
+            enhanced_html = f"""
             <div style="
-                resize: both;
-                overflow: auto;
                 width: 100%;
-                height: 600px;
-                border: 1px solid #ccc;
-                padding: 10px;
+                height: 720px;
+                border: 2px solid #e1e5e9;
+                border-radius: 10px;
+                padding: 5px;
+                background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             ">
                 {html_content}
             </div>
-        """
-
-        # Render the resizable HTML content in Streamlit
-        components.html(resizable_html, height=620, scrolling=True)
-    except AttributeError:
-        try:
-            # For pyvis versions >= 0.5.1
-            html_content = net.to_html()
-            resizable_html = f"""
-                <div style="
-                    resize: both;
-                    overflow: auto;
-                    width: 100%;
-                    height: 600px;
-                    border: 1px solid #ccc;
-                    padding: 10px;
-                ">
-                    {html_content}
-                </div>
             """
-            components.html(resizable_html, height=620, scrolling=True)
+            components.html(enhanced_html, height=740, scrolling=True)
         except Exception as e:
-            st.error(f"⚠️ An error occurred while generating the network chart: {e}")
+            st.error(f"⚠️ Грешка при генериране на мрежовия анализ: {e}")
     except Exception as e:
-        st.error(f"⚠️ An error occurred while generating the network chart: {e}")
+        st.error(f"⚠️ Грешка при генериране на мрежовия анализ: {e}")
+
+    # --- 8. Additional Analysis Sections ---
+    
+    # Top correspondents
+    st.subheader("📊 Топ кореспонденти")
+    
+    degree_df = pd.DataFrame([
+        {
+            'Лице': node,
+            'Общо връзки': degree_dict_filtered[node],
+            'Получени писма': G_filtered.in_degree(node),
+            'Изпратени писма': G_filtered.out_degree(node)
+        }
+        for node in degree_dict_filtered.keys()
+    ]).sort_values('Общо връзки', ascending=False)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**Топ 10 по общо връзки:**")
+        st.dataframe(
+            degree_df.head(10),
+            use_container_width=True,
+            hide_index=True
+        )
+    
+    with col2:
+        # Centrality measures
+        if len(G_filtered.nodes()) > 1:
+            st.write("**Мерки за централност:**")
+            
+            betweenness = nx.betweenness_centrality(G_filtered)
+            closeness = nx.closeness_centrality(G_filtered)
+            
+            centrality_df = pd.DataFrame([
+                {
+                    'Лице': node,
+                    'Betweenness': f"{betweenness.get(node, 0):.3f}",
+                    'Closeness': f"{closeness.get(node, 0):.3f}"
+                }
+                for node in list(G_filtered.nodes())[:10]
+            ])
+            
+            st.dataframe(
+                centrality_df,
+                use_container_width=True,
+                hide_index=True
+            )
+
+    # Network visualization charts
+    st.subheader("📈 Анализ на разпределението")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Degree distribution
+        degrees = list(degree_dict_filtered.values())
+        fig_hist = px.histogram(
+            x=degrees,
+            title="Разпределение на връзките",
+            labels={'x': 'Брой връзки', 'y': 'Честота'},
+            color_discrete_sequence=['#2E86AB']
+        )
+        fig_hist.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        st.plotly_chart(fig_hist, use_container_width=True)
+    
+    with col2:
+        # Top connections bar chart
+        top_10 = degree_df.head(10)
+        fig_bar = px.bar(
+            top_10,
+            x='Общо връзки',
+            y='Лице',
+            orientation='h',
+            title="Топ 10 лица по връзки",
+            color='Общо връзки',
+            color_continuous_scale='Blues'
+        )
+        fig_bar.update_layout(
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        st.plotly_chart(fig_bar, use_container_width=True)
 
 # Example usage within a Streamlit app
 if __name__ == "__main__":
-    st.title("📬-------")
+    st.title("📬 Мрежов анализ на кореспонденциите")
+    st.markdown("Усъвършенстван анализ на мрежата от кореспонденции")
 
 
