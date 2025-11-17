@@ -195,7 +195,7 @@ This is a research tool developed for historical correspondence analysis. Contri
 
 ## 📄 License
 
-Creative Commons Attribution 4.0 International License (CC-BY-4.0)
+[Creative Commons Attribution 4.0 International License (CC-BY-4.0)](https://github.com/Bestroi150/georgievi-network/blob/main/LICENSE)
 
 ## 📞 Support
 
@@ -209,4 +209,5 @@ For questions about usage, data formats, or technical issues:
 **Built with ❤️ for Digital Humanities Research**
 
 *Transforming historical correspondence into interactive network insights*
+
 
