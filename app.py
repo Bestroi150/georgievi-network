@@ -364,7 +364,7 @@ with tab_stats:
 
     df = pd.DataFrame(data)
     if not df.empty:
-        # Първи график: Пай диаграма за брой документи по изпращач
+        # Първа графика: Пай диаграма за брой документи по изпращач
         st.subheader("Разпределение на документите по изпращач")
         sender_counts = df['sender_name'].value_counts().reset_index()
         sender_counts.columns = ['sender_name', 'count']
@@ -373,7 +373,7 @@ with tab_stats:
 
         st.markdown("---")
 
-        # Втори: интерактивна таблица за брой документи по получател
+        # Втора графика: интерактивна таблица за брой документи по получател
         st.subheader("Брой документи по получател")
         addressee_counts = df['addressee_name'].value_counts().reset_index()
         addressee_counts.columns = ['Получател', 'Брой документи']
@@ -399,7 +399,7 @@ with tab_stats:
 
         st.markdown("---")
 
-        # Трети: най-често споменавани ключови думи
+        # Трета графика: най-често споменавани ключови думи
         st.subheader("Най-често споменавани ключови думи")
         all_keywords = []
         for kw_list in df['keywords']:
@@ -408,7 +408,7 @@ with tab_stats:
             keywords_series = pd.Series(all_keywords).value_counts().reset_index()
             keywords_series.columns = ['Ключова дума', 'Брой споменавания']
 
-            # Филтрираме празните ключови думи, ако има
+            # Премахване на празните празните полета без ключови думи
             keywords_table = keywords_series.dropna(subset=['Ключова дума'])
 
             if not keywords_table.empty:
@@ -585,3 +585,4 @@ with tab_temporal:
     st.header("Темпорален анализ на комуникациите")
     # Call function from temporal_analysis.py
     show_temporal_network_analysis(data)
+
