@@ -200,7 +200,6 @@ This is a research tool developed for historical correspondence analysis. Contri
 ## 📞 Support
 
 For questions about usage, data formats, or technical issues:
-- Check the deployment guide in `DEPLOYMENT.md`
 - Review the technical documentation
 - Consult Streamlit documentation for framework-specific questions
 
@@ -209,5 +208,6 @@ For questions about usage, data formats, or technical issues:
 **Built with ❤️ for Digital Humanities Research**
 
 *Transforming historical correspondence into interactive network insights*
+
 
 
