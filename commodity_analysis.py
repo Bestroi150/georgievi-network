@@ -407,7 +407,7 @@ def show_commodity_analysis(commodity_data):
     
     with col4:
         density = nx.density(G)
-        st.metric("Плътност", f"{density:.3f}")
+        st.metric("Гъстота", f"{density:.3f}")
     
     # Edge weight distribution
     st.subheader("Разпределение на силата на връзките")
