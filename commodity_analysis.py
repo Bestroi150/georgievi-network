@@ -5,31 +5,27 @@ import plotly.graph_objects as go
 import plotly.express as px
 from collections import Counter
 import numpy as np
+from labels import get_labels
 
 def show_commodity_network_analysis(data):
     """
     Creates and displays commodity network flow analysis.
-    
-    Analyzes relationships between commodities and places where they are traded.
     """
-    
-    st.subheader("Анализ на стоковите потоци")
-    st.markdown("""
-    **Анализ:** Мрежа на стоковите потоци между места  
-    **Възли:** Стоки (ключови думи) и места  
-    **Връзки:** Споменаване на стока в контекста на място  
-    **Цел:** Проследяване на търговските маршрути и стокообмена
-    """)
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['ca_subheader'])
+    st.markdown(L['ca_desc'])
     
     # Extract commodity and place data
     commodity_data = extract_commodity_place_data(data)
     
     if not commodity_data['edges']:
-        st.warning("Няма достатъчно данни за анализ на стоковите потоци.")
+        st.warning(L['ca_no_data'])
         return
     
     # Create tabs for different views
-    network_tab, flow_tab, analysis_tab = st.tabs(["🕸️ Двустранна мрежа", "📊 Потоци", "🔍 Анализ"])
+    network_tab, flow_tab, analysis_tab = st.tabs([L['ca_inner_network'], L['ca_inner_flows'], L['ca_inner_analysis']])
     
     with network_tab:
         show_commodity_network(commodity_data)
@@ -101,7 +97,10 @@ def show_commodity_network(commodity_data):
     """
     Display bipartite network of commodities and places.
     """
-    st.subheader("Двустранна мрежа: Стоки ↔ Места")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['ca_net_header'])
     
     # Create bipartite graph
     G = nx.Graph()
@@ -119,26 +118,26 @@ def show_commodity_network(commodity_data):
             G.add_edge(commodity, place, weight=weight)
     
     if G.number_of_nodes() == 0:
-        st.warning("Няма данни за създаване на мрежа.")
+        st.warning(L['ca_no_net'])
         return
     
     # Control parameters
     col1, col2 = st.columns([3, 1])
     
     with col2:
-        st.subheader("Настройки")
+        st.subheader(L['ca_settings'])
         min_weight = st.slider(
-            "Минимален брой споменавания:", 
-            1, 
-            max([w for (_, _, _), w in commodity_data['edges'].items()]) if commodity_data['edges'] else 5, 
+            L['ca_min_mentions'],
+            1,
+            max([w for (_, _, _), w in commodity_data['edges'].items()]) if commodity_data['edges'] else 5,
             1,
             key="commodity_min_weight"
         )
         
-        show_labels = st.checkbox("Покажи етикети", True, key="commodity_show_labels")
+        show_labels = st.checkbox(L['ca_show_labels'], True, key="commodity_show_labels")
         
         layout_type = st.selectbox(
-            "Тип на подредбата:",
+            L['ca_layout_type'],
             ["bipartite", "spring", "circular"],
             index=0,
             key="commodity_layout_type"
@@ -153,7 +152,7 @@ def show_commodity_network(commodity_data):
         ]
         
         if not filtered_edges:
-            st.warning("Няма връзки, които отговарят на критерия.")
+            st.warning(L['ca_no_match'])
             return
         
         # Create filtered graph
@@ -220,8 +219,8 @@ def show_commodity_network(commodity_data):
                 
                 node_text.append(
                     f"<b>{node}</b><br>"
-                    f"Тип: {'Стока' if node_type == 'commodity' else 'Място'}<br>"
-                    f"Връзки: {connections}"
+                    f"{L['ca_type_commodity'] if node_type == 'commodity' else L['ca_type_place']}<br>"
+                    f"{L['ca_conn_label'].format(n=connections)}"
                 )
                 
                 # Color by type
@@ -244,12 +243,12 @@ def show_commodity_network(commodity_data):
         ))
         
         fig.update_layout(
-            title='Двустранна мрежа: Стоки ↔ Места',
+            title=L['ca_net_title'],
             showlegend=False,
             hovermode='closest',
             margin=dict(b=20,l=5,r=5,t=40),
             annotations=[dict(
-                text="🟡 Стоки | 🔵 Места",
+                text=L['ca_annotation'],
                 showarrow=False,
                 xref="paper", yref="paper",
                 x=0.005, y=-0.002
@@ -264,7 +263,10 @@ def show_commodity_flows(commodity_data):
     """
     Display commodity flow analysis.
     """
-    st.subheader("Анализ на стоковите потоци")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['ca_flows_header'])
     
     # Create flow data
     commodity_flows = {}
@@ -283,55 +285,55 @@ def show_commodity_flows(commodity_data):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Топ стоки по брой места")
+        st.subheader(L['ca_top_commodities'])
         commodity_summary = []
         for commodity, flows in commodity_flows.items():
             total_weight = sum(weight for _, weight in flows)
             num_places = len(flows)
             commodity_summary.append({
-                'Стока': commodity,
-                'Брой места': num_places,
-                'Общо споменавания': total_weight
+                L['ca_commodity_col']: commodity,
+                L['ca_num_places_col']: num_places,
+                L['ca_total_mentions_col']: total_weight
             })
         
-        commodity_df = pd.DataFrame(commodity_summary).sort_values('Брой места', ascending=False)
+        commodity_df = pd.DataFrame(commodity_summary).sort_values(L['ca_num_places_col'], ascending=False)
         st.dataframe(commodity_df.head(15), width='stretch')
         
         # Visualization
         if not commodity_df.empty:
             fig = px.bar(
                 commodity_df.head(10),
-                x='Брой места',
-                y='Стока',
+                x=L['ca_num_places_col'],
+                y=L['ca_commodity_col'],
                 orientation='h',
-                title='Топ 10 стоки по географско разпространение'
+                title=L['ca_top_comm_title']
             )
             fig.update_yaxes(categoryorder="total ascending")
             st.plotly_chart(fig, width='stretch')
     
     with col2:
-        st.subheader("Топ места по брой стоки")
+        st.subheader(L['ca_top_places'])
         place_summary = []
         for place, flows in place_flows.items():
             total_weight = sum(weight for _, weight in flows)
             num_commodities = len(flows)
             place_summary.append({
-                'Място': place,
-                'Брой стоки': num_commodities,
-                'Общо споменавания': total_weight
+                L['ca_place_col']: place,
+                L['ca_num_commodities_col']: num_commodities,
+                L['ca_total_mentions_col']: total_weight
             })
         
-        place_df = pd.DataFrame(place_summary).sort_values('Брой стоки', ascending=False)
+        place_df = pd.DataFrame(place_summary).sort_values(L['ca_num_commodities_col'], ascending=False)
         st.dataframe(place_df.head(15), width='stretch')
         
         # Visualization
         if not place_df.empty:
             fig = px.bar(
                 place_df.head(10),
-                x='Брой стоки',
-                y='Място',
+                x=L['ca_num_commodities_col'],
+                y=L['ca_place_col'],
                 orientation='h',
-                title='Топ 10 места по стоково разнообразие'
+                title=L['ca_top_places_title']
             )
             fig.update_yaxes(categoryorder="total ascending")
             st.plotly_chart(fig, width='stretch')
@@ -340,7 +342,10 @@ def show_commodity_analysis(commodity_data):
     """
     Show detailed analysis of commodity networks.
     """
-    st.subheader("Мрежов анализ на стоковите потоци")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['ca_network_analysis'])
     
     # Create bipartite graph for analysis
     G = nx.Graph()
@@ -356,7 +361,7 @@ def show_commodity_analysis(commodity_data):
             G.add_edge(commodity, place, weight=weight)
     
     if G.number_of_nodes() == 0:
-        st.warning("Няма данни за мрежов анализ.")
+        st.warning(L['ca_no_net_analysis'])
         return
     
     # Calculate centrality measures
@@ -369,10 +374,10 @@ def show_commodity_analysis(commodity_data):
     
     for node in G.nodes():
         centrality_data = {
-            'Възел': node,
-            'Степенна централност': degree_centrality[node],
-            'Посредническа централност': betweenness_centrality[node],
-            'Връзки': G.degree(node)
+            L['ca_node_col']: node,
+            L['ca_degree_col']: degree_centrality[node],
+            L['ca_betweenness_col']: betweenness_centrality[node],
+            L['ca_connections_col']: G.degree(node)
         }
         
         if node in commodity_data['commodities']:
@@ -383,41 +388,39 @@ def show_commodity_analysis(commodity_data):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Топ стоки по централност")
-        commodities_df = pd.DataFrame(commodities_centrality).sort_values('Степенна централност', ascending=False)
+        st.subheader(L['ca_top_commodities_central'])
+        commodities_df = pd.DataFrame(commodities_centrality).sort_values(L['ca_degree_col'], ascending=False)
         st.dataframe(commodities_df.head(10), width='stretch')
     
     with col2:
-        st.subheader("Топ места по централност")
-        places_df = pd.DataFrame(places_centrality).sort_values('Степенна централност', ascending=False)
+        st.subheader(L['ca_top_places_central'])
+        places_df = pd.DataFrame(places_centrality).sort_values(L['ca_degree_col'], ascending=False)
         st.dataframe(places_df.head(10), width='stretch')
     
-    # Network statistics
-    st.subheader("Статистики на мрежата")
+    st.subheader(L['ca_net_stats'])
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Стоки", len(commodity_data['commodities']))
+        st.metric(L['ca_commodities_metric'], len(commodity_data['commodities']))
     
     with col2:
-        st.metric("Места", len(commodity_data['places']))
+        st.metric(L['ca_places_metric'], len(commodity_data['places']))
     
     with col3:
-        st.metric("Връзки", G.number_of_edges())
+        st.metric(L['ca_edges_metric'], G.number_of_edges())
     
     with col4:
         density = nx.density(G)
-        st.metric("Гъстота", f"{density:.3f}")
+        st.metric(L['ca_density_metric'], f"{density:.3f}")
     
-    # Edge weight distribution
-    st.subheader("Разпределение на силата на връзките")
+    st.subheader(L['ca_weight_dist'])
     weights = [w for (_, _, _), w in commodity_data['edges'].items()]
     
     fig = px.histogram(
         x=weights,
         nbins=20,
-        title='Разпределение на броя споменавания стока-място'
+        title=L['ca_weight_dist_title']
     )
-    fig.update_xaxes(title="Брой споменавания")
-    fig.update_yaxes(title="Честота")
+    fig.update_xaxes(title=L['ca_weight_x'])
+    fig.update_yaxes(title=L['ca_weight_y'])
     st.plotly_chart(fig, width='stretch')
