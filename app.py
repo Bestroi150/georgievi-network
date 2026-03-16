@@ -13,10 +13,9 @@ from geographical_network import show_geographical_network
 from topics_keywords_analysis import show_topics_keywords_analysis
 from commodity_analysis import show_commodity_network_analysis
 from temporal_analysis import show_temporal_network_analysis
+from labels import get_labels
 
-st.set_page_config(page_title="Визуализация на исторически писма", layout="wide")
-
-XML_FILE = "data.xml"
+st.set_page_config(page_title="Historical Letters | Исторически Писма", layout="wide")
 
 @st.cache_data
 def load_data(xml_file):
@@ -102,123 +101,130 @@ def load_data(xml_file):
 def filter_correspondence(data, sender, addressee):
     return [d for d in data if d['sender_name'] == sender and d['addressee_name'] == addressee]
 
+# --- Language Selector ---
+_lang_opt = st.sidebar.radio(
+    "🌐 Language / Език",
+    ["Български", "English"],
+    horizontal=True,
+    key="lang_radio"
+)
+_lang = 'en' if _lang_opt == "English" else 'bg'
+st.session_state['lang'] = _lang
+L = get_labels(_lang)
+
 # --- Load Data ---
+XML_FILE = "data_english.xml" if _lang == 'en' else "data.xml"
 data = load_data(XML_FILE)
 
-st.title("Визуализация на исторически писма (TEI XML)")
+st.title(L['app_title'])
 
 # --- Define Tabs ---
 tab_docs, tab_map, tab_stats, tab_search, tab_network, tab_geo_network, tab_topics, tab_commodity, tab_temporal = st.tabs([
-    "Документи", 
-    "Карта", 
-    "Статистика", 
-    "Търсене по Shelfmark", 
-    "Мрежов анализ",
-    "Географска мрежа",
-    "Теми и думи",
-    "Стокови потоци",
-    "Темпорален анализ"
+    L['tab_docs'],
+    L['tab_map'],
+    L['tab_stats'],
+    L['tab_search'],
+    L['tab_network'],
+    L['tab_geo_network'],
+    L['tab_topics'],
+    L['tab_commodity'],
+    L['tab_temporal']
 ])
 
 # ---------------------------------------------------------------------------------
 # 1) DOCS TAB
 # ---------------------------------------------------------------------------------
 with tab_docs:
-    st.sidebar.header("Избор на кореспонденция")
+    st.sidebar.header(L['sidebar_correspondence'])
 
-    # Първо избираме изпращач
     all_senders = sorted({d['sender_name'] for d in data if d['sender_name']})
-    selected_sender = st.sidebar.selectbox("Изберете изпращач:", ["(Няма)"] + all_senders)
+    selected_sender = st.sidebar.selectbox(L['select_sender'], [L['none_option']] + all_senders)
 
-    if selected_sender != "(Няма)":
-        # Филтрираме документите само за този изпращач
+    if selected_sender != L['none_option']:
         sender_docs = [d for d in data if d['sender_name'] == selected_sender]
-        # Извличаме уникалните получатели на този изпращач
         sender_addressees = sorted({d['addressee_name'] for d in sender_docs if d['addressee_name']})
-        selected_addressee = st.sidebar.selectbox("Изберете получател:", ["(Няма)"] + sender_addressees)
+        selected_addressee = st.sidebar.selectbox(L['select_addressee'], [L['none_option']] + sender_addressees)
 
-        if selected_addressee != "(Няма)":
+        if selected_addressee != L['none_option']:
             # Филтрираме по избран изпращач и получател
             filtered_docs = filter_correspondence(data, selected_sender, selected_addressee)
             if filtered_docs:
-                st.write(f"Намерени {len(filtered_docs)} документа между {selected_sender} и {selected_addressee}:")
-                # Избор на конкретен документ по сигнатура
+                st.write(L['found_docs'].format(n=len(filtered_docs), s=selected_sender, a=selected_addressee))
                 shelfmarks = [d['shelfmark'] for d in filtered_docs]
-                selected_shelfmark = st.selectbox("Изберете документ:", shelfmarks)
+                selected_shelfmark = st.selectbox(L['select_doc'], shelfmarks)
                 selected_entry = next(d for d in filtered_docs if d['shelfmark'] == selected_shelfmark)
 
-                # Визуализираме детайлите
-                st.subheader(f"Документ: {selected_entry['shelfmark']}")
+                st.subheader(f"{L['doc_label']} {selected_entry['shelfmark']}")
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    st.markdown("### Информация за изпращача")
-                    st.write(f"**Име:** {selected_entry['sender_name']}")
-                    st.write(f"**Местоположение:** {selected_entry['sender_place']}")
-                    st.write(f"**Дата:** {selected_entry['sender_date']}")
+                    st.markdown(f"### {L['sender_info']}")
+                    st.write(f"**{L['name']}:** {selected_entry['sender_name']}")
+                    st.write(f"**{L['location']}:** {selected_entry['sender_place']}")
+                    st.write(f"**{L['date']}:** {selected_entry['sender_date']}")
 
                 with col2:
-                    st.markdown("### Информация за получателя")
-                    st.write(f"**Име:** {selected_entry['addressee_name']}")
-                    st.write(f"**Местоположение:** {selected_entry['addressee_place']}")
+                    st.markdown(f"### {L['addressee_info']}")
+                    st.write(f"**{L['name']}:** {selected_entry['addressee_name']}")
+                    st.write(f"**{L['location']}:** {selected_entry['addressee_place']}")
 
                 st.markdown("---")
-                st.markdown("### Основни теми")
+                st.markdown(f"### {L['main_topics']}")
                 if selected_entry['main_topics']:
                     for t in selected_entry['main_topics']:
                         st.write("- " + t)
                 else:
-                    st.write("Няма данни")
+                    st.write(L['no_data'])
 
-                st.markdown("### Ключови думи")
+                st.markdown(f"### {L['keywords']}")
                 if selected_entry['keywords']:
                     for k in selected_entry['keywords']:
                         st.write("- " + k)
                 else:
-                    st.write("Няма данни")
+                    st.write(L['no_data'])
 
-                st.markdown("### Друга информация")
+                st.markdown(f"### {L['other_info']}")
                 if selected_entry['other_info']:
                     for o in selected_entry['other_info']:
                         st.write("- " + o)
                 else:
-                    st.write("Няма данни")
+                    st.write(L['no_data'])
 
-                st.markdown("### Споменати места")
+                st.markdown(f"### {L['mentioned_places']}")
                 places_data = [p for p in selected_entry['mentioned_places'] if p['latitude'] is not None and p['longitude'] is not None]
 
                 if places_data:
                     df_places = pd.DataFrame([{"lat": p["latitude"], "lon": p["longitude"]} for p in places_data])
                     st.map(df_places)
-                    st.markdown("#### Подробности за споменатите места:")
+                    st.markdown(f"#### {L['place_details']}")
                     for p in places_data:
-                        st.write(f"- **{p['name']}**: [Повече информация]({p['ref']}) (lat: {p['latitude']}, lon: {p['longitude']})")
+                        st.write(f"- **{p['name']}**: [{L['more_info']}]({p['ref']}) (lat: {p['latitude']}, lon: {p['longitude']})")
                 else:
                     if selected_entry['mentioned_places']:
-                        st.write("Няма координатни данни за споменатите места")
+                        st.write(L['no_coords'])
                         for p in selected_entry['mentioned_places']:
-                            st.write(f"- **{p['name']}** (без координати)")
+                            st.write(f"- **{p['name']}**")
                     else:
-                        st.write("Няма споменати места")
+                        st.write(L['no_places'])
 
-                st.markdown("### Споменати личности")
+                st.markdown(f"### {L['mentioned_persons']}")
                 if selected_entry['mentioned_persons']:
                     for person in selected_entry['mentioned_persons']:
                         st.write("- " + person)
                 else:
-                    st.write("Няма данни")
+                    st.write(L['no_data'])
             else:
-                st.write(f"Няма намерени документи за кореспонденция между {selected_sender} и {selected_addressee}.")
+                st.write(L['no_docs_found'].format(s=selected_sender, a=selected_addressee))
         else:
-            st.write("Моля, изберете получател.")
+            st.write(L['select_addressee_prompt'])
     else:
-        st.write("Моля, изберете изпращач.")
+        st.write(L['select_sender_prompt'])
 
 # ---------------------------------------------------------------------------------
 # 2) MAP TAB
 # ---------------------------------------------------------------------------------
 with tab_map:
-    st.header("Карта на всички споменати места")
+    st.header(L['map_header'])
     all_places = []
     place_counts = {}
     for entry in data:
@@ -248,9 +254,9 @@ with tab_map:
         # Map display options
         col1, col2 = st.columns([3, 1])
         with col2:
-            st.subheader("Настройки на картата")
-            map_height = st.slider("Височина на картата", 400, 800, 500, 50)
-            show_fullscreen = st.checkbox("Покажи в пълен екран", False)
+            st.subheader(L['map_settings'])
+            map_height = st.slider(L['map_height_label'], 400, 800, 500, 50)
+            show_fullscreen = st.checkbox(L['fullscreen_cb'], False)
             
         # Folium map with enhanced features
         m = folium.Map(
@@ -290,13 +296,13 @@ with tab_map:
         # Add fullscreen button
         Fullscreen(
             position="topright",
-            title="Покажи в пълен екран",
-            title_cancel="Излез от пълен екран",
+            title=L['fullscreen_title'],
+            title_cancel=L['fullscreen_cancel'],
             force_separate_button=True,
         ).add_to(m)
         
         marker_cluster = MarkerCluster(
-            name="Споменати места",
+            name=L['clusters_label'],
             control=True,
             show=True
         ).add_to(m)
@@ -304,8 +310,8 @@ with tab_map:
         for _, place in df_all_places.iterrows():
             popup_html = f"<b>{place['name']}</b><br>"
             if place['ref']:
-                popup_html += f"<a href='{place['ref']}' target='_blank'>Допълнителна информация</a><br>"
-            popup_html += f"Брой споменавания: {place['count']}"
+                popup_html += f"<a href='{place['ref']}' target='_blank'>{L['add_info']}</a><br>"
+            popup_html += f"{L['mention_count_label']} {place['count']}"
             
             # Create marker with different colors based on mention count
             if place['count'] >= 5:
@@ -320,7 +326,7 @@ with tab_map:
             folium.Marker(
                 location=[place['latitude'], place['longitude']],
                 popup=folium.Popup(popup_html, max_width=300),
-                tooltip=f"{place['name']} ({place['count']} споменавания)",
+                tooltip=f"{place['name']} ({place['count']} {L['mentions']})",
                 icon=folium.Icon(color=icon_color, icon='info-sign')
             ).add_to(marker_cluster)
 
@@ -339,44 +345,30 @@ with tab_map:
             st_folium(m, width=700, height=map_height, returned_objects=["last_object_clicked"])
             
         # Legend
-        st.markdown("""
-        **Легенда на картата:**
-        - 🔴 Червени маркери: 5+ споменавания
-        - 🟠 Оранжеви маркери: 3-4 споменавания  
-        - 🟢 Зелени маркери: 2 споменавания
-        - 🔵 Сини маркери: 1 споменаване
-        
-        **Слоеве на картата:**
-        - **OpenStreetMap**: Стандартна карта
-        - **Topographic**: Топографска карта с релеф
-        - **Terrain**: Терен с релефни данни
-        - **Satellite**: Сателитни изображения
-        """)
+        st.markdown(L['map_legend'])
         
     else:
-        st.write("Няма споменати места с координати.")
+        st.write(L['no_coord_places'])
 
 # ---------------------------------------------------------------------------------
 # 3) STATS TAB
 # ---------------------------------------------------------------------------------
 with tab_stats:
-    st.header("Статистика")
+    st.header(L['stats_header'])
 
     df = pd.DataFrame(data)
     if not df.empty:
-        # Първа графика: Пай диаграма за брой документи по изпращач
-        st.subheader("Разпределение на документите по изпращач")
+        st.subheader(L['sender_dist'])
         sender_counts = df['sender_name'].value_counts().reset_index()
         sender_counts.columns = ['sender_name', 'count']
-        fig_pie_sender = px.pie(sender_counts, names='sender_name', values='count', title='Брой документи по изпращач')
+        fig_pie_sender = px.pie(sender_counts, names='sender_name', values='count', title=L['docs_by_sender_title'])
         st.plotly_chart(fig_pie_sender, width='stretch')
 
         st.markdown("---")
 
-        # Втора графика: интерактивна таблица за брой документи по получател
-        st.subheader("Брой документи по получател")
+        st.subheader(L['docs_by_addressee'])
         addressee_counts = df['addressee_name'].value_counts().reset_index()
-        addressee_counts.columns = ['Получател', 'Брой документи']
+        addressee_counts.columns = [L['addressee_col'], L['doc_count_col']]
 
         if not addressee_counts.empty:
             gb_addressee = GridOptionsBuilder.from_dataframe(addressee_counts)
@@ -395,21 +387,19 @@ with tab_stats:
                 allow_unsafe_jscode=False
             )
         else:
-            st.write("Няма данни за получатели.")
+            st.write(L['no_addressee_data'])
 
         st.markdown("---")
 
-        # Трета графика: най-често споменавани ключови думи
-        st.subheader("Най-често споменавани ключови думи")
+        st.subheader(L['top_keywords'])
         all_keywords = []
         for kw_list in df['keywords']:
             all_keywords.extend(kw_list)
         if all_keywords:
             keywords_series = pd.Series(all_keywords).value_counts().reset_index()
-            keywords_series.columns = ['Ключова дума', 'Брой споменавания']
+            keywords_series.columns = [L['keyword_col'], L['mention_col']]
 
-            # Премахване на празните празните полета без ключови думи
-            keywords_table = keywords_series.dropna(subset=['Ключова дума'])
+            keywords_table = keywords_series.dropna(subset=[L['keyword_col']])
 
             if not keywords_table.empty:
                 gb_keywords = GridOptionsBuilder.from_dataframe(keywords_table)
@@ -437,152 +427,147 @@ with tab_stats:
                 if isinstance(selected_rows, list) and len(selected_rows) > 0:
                     first_row = selected_rows[0]
                     if isinstance(first_row, dict):
-                        selected_keyword = first_row.get('Ключова дума', None)
+                        selected_keyword = first_row.get(L['keyword_col'], None)
                 elif isinstance(selected_rows, pd.DataFrame):
                     if not selected_rows.empty:
                         first_row = selected_rows.iloc[0]
-                        selected_keyword = first_row.get('Ключова дума', None)
+                        selected_keyword = first_row.get(L['keyword_col'], None)
 
                 if selected_keyword:
-                    st.markdown(f"### Документи свързани с ключовата дума: **{selected_keyword}**")
+                    st.markdown(f"### {L['related_docs_hdr'].format(kw=selected_keyword)}")
                     related_docs = df[df['keywords'].apply(lambda kws: selected_keyword in kws)]
 
                     if not related_docs.empty:
                         related_shelfmarks = related_docs['shelfmark'].dropna().unique().tolist()
-                        st.write(f"**Намерените shelfmarks ({len(related_shelfmarks)}):**")
+                        st.write(f"**{L['found_shelfmarks'].format(n=len(related_shelfmarks))}**")
                         for sm in related_shelfmarks:
                             st.write(f"- {sm}")
                     else:
-                        st.write("Няма намерени документи за тази ключова дума.")
+                        st.write(L['no_docs_keyword'])
                 else:
-                    st.write("Моля, изберете ключова дума от таблицата.")
+                    st.write(L['select_keyword'])
             else:
-                st.write("Няма ключови думи след филтрация.")
+                st.write(L['no_keywords_filter'])
         else:
-            st.write("Няма ключови думи.")
+            st.write(L['no_keywords'])
     else:
-        st.write("Няма данни за статистика.")
+        st.write(L['no_stats'])
 
 # ---------------------------------------------------------------------------------
 # 4) SEARCH TAB
 # ---------------------------------------------------------------------------------
 with tab_search:
-    st.header("Търсене по Shelfmark")
+    st.header(L['search_header'])
 
     all_shelfmarks = sorted({d['shelfmark'] for d in data if d['shelfmark']})
-    search_query = st.text_input("Въведете Shelfmark или част от него:", "")
+    search_query = st.text_input(L['search_input'], "")
 
     if search_query:
         filtered_shelfmarks = [sm for sm in all_shelfmarks if search_query.lower() in sm.lower()]
     else:
         filtered_shelfmarks = all_shelfmarks
 
-    selected_shelfmark = st.selectbox("Изберете Shelfmark:", ["(Няма)"] + filtered_shelfmarks)
+    selected_shelfmark = st.selectbox(L['select_shelfmark'], [L['none_option']] + filtered_shelfmarks)
 
-    if selected_shelfmark != "(Няма)":
+    if selected_shelfmark != L['none_option']:
         selected_entry = next((d for d in data if d['shelfmark'] == selected_shelfmark), None)
         if selected_entry:
-            st.subheader(f"Документ: {selected_entry['shelfmark']}")
+            st.subheader(f"{L['doc_label']} {selected_entry['shelfmark']}")
             col1, col2 = st.columns(2)
 
             with col1:
-                st.markdown("### Информация за изпращача")
-                st.write(f"**Име:** {selected_entry['sender_name']}")
-                st.write(f"**Местоположение:** {selected_entry['sender_place']}")
-                st.write(f"**Дата:** {selected_entry['sender_date']}")
+                st.markdown(f"### {L['sender_info']}")
+                st.write(f"**{L['name']}:** {selected_entry['sender_name']}")
+                st.write(f"**{L['location']}:** {selected_entry['sender_place']}")
+                st.write(f"**{L['date']}:** {selected_entry['sender_date']}")
 
             with col2:
-                st.markdown("### Информация за получателя")
-                st.write(f"**Име:** {selected_entry['addressee_name']}")
-                st.write(f"**Местоположение:** {selected_entry['addressee_place']}")
+                st.markdown(f"### {L['addressee_info']}")
+                st.write(f"**{L['name']}:** {selected_entry['addressee_name']}")
+                st.write(f"**{L['location']}:** {selected_entry['addressee_place']}")
 
             st.markdown("---")
-            st.markdown("### Основни теми")
+            st.markdown(f"### {L['main_topics']}")
             if selected_entry['main_topics']:
                 for t in selected_entry['main_topics']:
                     st.write("- " + t)
             else:
-                st.write("Няма данни")
+                st.write(L['no_data'])
 
-            st.markdown("### Ключови думи")
+            st.markdown(f"### {L['keywords']}")
             if selected_entry['keywords']:
                 for k in selected_entry['keywords']:
                     st.write("- " + k)
             else:
-                st.write("Няма данни")
+                st.write(L['no_data'])
 
-            st.markdown("### Друга информация")
+            st.markdown(f"### {L['other_info']}")
             if selected_entry['other_info']:
                 for o in selected_entry['other_info']:
                     st.write("- " + o)
             else:
-                st.write("Няма данни")
+                st.write(L['no_data'])
 
-            st.markdown("### Споменати места")
+            st.markdown(f"### {L['mentioned_places']}")
             places_data = [p for p in selected_entry['mentioned_places'] if p['latitude'] is not None and p['longitude'] is not None]
 
             if places_data:
                 df_places = pd.DataFrame([{"lat": p["latitude"], "lon": p["longitude"]} for p in places_data])
                 st.map(df_places)
-                st.markdown("#### Подробности за споменатите места:")
+                st.markdown(f"#### {L['place_details']}")
                 for p in places_data:
-                    st.write(f"- **{p['name']}**: [Повече информация]({p['ref']}) (lat: {p['latitude']}, lon: {p['longitude']})")
+                    st.write(f"- **{p['name']}**: [{L['more_info']}]({p['ref']}) (lat: {p['latitude']}, lon: {p['longitude']})")
             else:
                 if selected_entry['mentioned_places']:
-                    st.write("Няма координатни данни за споменатите места")
+                    st.write(L['no_coords'])
                     for p in selected_entry['mentioned_places']:
-                        st.write(f"- **{p['name']}** (без координати)")
+                        st.write(f"- **{p['name']}**")
                 else:
-                    st.write("Няма споменати места")
+                    st.write(L['no_places'])
 
-            st.markdown("### Споменати личности")
+            st.markdown(f"### {L['mentioned_persons']}")
             if selected_entry['mentioned_persons']:
                 for person in selected_entry['mentioned_persons']:
                     st.write("- " + person)
             else:
-                st.write("Няма данни")
+                st.write(L['no_data'])
         else:
-            st.write("Документът с този Shelfmark не беше намерен.")
+            st.write(L['shelfmark_not_found'])
     else:
-        st.write("Моля, изберете Shelfmark от списъка.")
+        st.write(L['select_shelfmark_prompt'])
 
 # ---------------------------------------------------------------------------------
 # 5) NETWORK ANALYSIS TAB
 # ---------------------------------------------------------------------------------
 with tab_network:
-    st.header("Мрежов анализ на кореспонденциите")
-    # Call our newly created function from network_analysis.py
+    st.header(L['network_header'])
     show_network_analysis(data)
 
 # ---------------------------------------------------------------------------------
 # 6) GEOGRAPHICAL NETWORK TAB
 # ---------------------------------------------------------------------------------
 with tab_geo_network:
-    st.header("Географска мрежа на места")
-    # Call our newly created function from geographical_network.py
+    st.header(L['geo_header'])
     show_geographical_network(data)
 
 # ---------------------------------------------------------------------------------
 # 7) TOPICS AND KEYWORDS ANALYSIS TAB
 # ---------------------------------------------------------------------------------
 with tab_topics:
-    st.header("Анализ на теми и ключови думи")
-    # Call function from topics_keywords_analysis.py
+    st.header(L['topics_header'])
     show_topics_keywords_analysis(data)
 
 # ---------------------------------------------------------------------------------
 # 8) COMMODITY NETWORK FLOW TAB
 # ---------------------------------------------------------------------------------
 with tab_commodity:
-    st.header("Анализ на стоковите потоци")
-    # Call function from commodity_analysis.py
+    st.header(L['commodity_header'])
     show_commodity_network_analysis(data)
 
 # ---------------------------------------------------------------------------------
 # 9) TEMPORAL NETWORK ANALYSIS TAB
 # ---------------------------------------------------------------------------------
 with tab_temporal:
-    st.header("Темпорален анализ на комуникациите")
-    # Call function from temporal_analysis.py
+    st.header(L['temporal_header'])
     show_temporal_network_analysis(data)
 
