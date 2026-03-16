@@ -7,31 +7,27 @@ from collections import Counter, defaultdict
 import numpy as np
 from datetime import datetime
 import plotly.colors as colors
+from labels import get_labels
 
 def show_temporal_network_analysis(data):
     """
     Creates and displays temporal network analysis of correspondence.
-    
-    Analyzes how communication patterns change over time.
     """
-    
-    st.subheader("Темпорален анализ на комуникациите")
-    st.markdown("""
-    **Анализ:** Еволюция на комуникационните мрежи във времето  
-    **Възли:** Изпращачи и получатели  
-    **Връзки:** Писма с времеви марки  
-    **Цел:** Проследяване на промените в комуникационните модели
-    """)
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['ta_subheader'])
+    st.markdown(L['ta_desc'])
     
     # Extract temporal data
     temporal_data = extract_temporal_data(data)
     
     if not temporal_data['letters']:
-        st.warning("Няма достатъчно данни с дати за темпорален анализ.")
+        st.warning(L['ta_no_data'])
         return
     
     # Create tabs for different views
-    timeline_tab, network_tab, analysis_tab = st.tabs(["📅 Времева линия", "🕸️ Темпорална мрежа", "🔍 Анализ"])
+    timeline_tab, network_tab, analysis_tab = st.tabs([L['ta_inner_timeline'], L['ta_inner_network'], L['ta_inner_analysis']])
     
     with timeline_tab:
         show_temporal_timeline(temporal_data)
@@ -102,12 +98,15 @@ def show_temporal_timeline(temporal_data):
     """
     Display timeline view of correspondence.
     """
-    st.subheader("Времева линия на кореспонденцията")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['ta_timeline_header'])
     
     letters = temporal_data['letters']
     
     if not letters:
-        st.warning("Няма писма с валидни дати.")
+        st.warning(L['ta_no_dates'])
         return
     
     # Create timeline DataFrame
@@ -118,31 +117,28 @@ def show_temporal_timeline(temporal_data):
     col1, col2 = st.columns([3, 1])
     
     with col2:
-        st.subheader("Настройки")
+        st.subheader(L['ta_settings'])
         
-        # Date range filter
         min_date = timeline_df['date'].min().date()
         max_date = timeline_df['date'].max().date()
         
         selected_range = st.date_input(
-            "Период:",
+            L['ta_period'],
             value=(min_date, max_date),
             min_value=min_date,
             max_value=max_date
         )
         
-        # Group by options
         group_by = st.selectbox(
-            "Групиране по:",
+            L['ta_groupby'],
             ["month", "year", "day"],
             index=0,
             key="temporal_group_by"
         )
         
-        # Sender filter
         all_senders = sorted(set(letter['sender'] for letter in letters))
         selected_senders = st.multiselect(
-            "Изпращачи:",
+            L['ta_senders'],
             all_senders,
             default=all_senders
         )
@@ -160,39 +156,36 @@ def show_temporal_timeline(temporal_data):
             filtered_df = timeline_df[timeline_df['sender'].isin(selected_senders)]
         
         if filtered_df.empty:
-            st.warning("Няма данни за избрания период.")
+            st.warning(L['ta_no_period'])
             return
         
         # Create timeline chart
         if group_by == "day":
             grouped = filtered_df.groupby(filtered_df['date'].dt.date).size()
             x_values = [str(date) for date in grouped.index]
-            x_title = "Дата"
+            x_title = L['ta_date_label']
         elif group_by == "month":
             grouped = filtered_df.groupby(filtered_df['date'].dt.to_period('M')).size()
             x_values = [str(period) for period in grouped.index]
-            x_title = "Месец"
+            x_title = L['ta_month_label']
         else:  # year
             grouped = filtered_df.groupby(filtered_df['date'].dt.year).size()
             x_values = list(grouped.index)
-            x_title = "Година"
+            x_title = L['ta_year_label']
         
-        # Timeline plot
         fig = px.line(
             x=x_values,
             y=grouped.values,
-            title=f'Брой писма във времето (групирано по {group_by})',
+            title=L['ta_letters_over_time'].format(g=group_by),
             markers=True
         )
         fig.update_xaxes(title=x_title)
-        fig.update_yaxes(title="Брой писма")
+        fig.update_yaxes(title=L['ta_letters_y'])
         st.plotly_chart(fig, width='stretch')
         
-        # Communication frequency heatmap for monthly data
         if group_by == "month" and len(filtered_df) > 5:
-            st.subheader("Heatmap на комуникационна активност")
+            st.subheader(L['ta_heatmap_header'])
             
-            # Prepare data for heatmap
             filtered_df['month_name'] = filtered_df['date'].dt.strftime('%m')
             filtered_df['year'] = filtered_df['date'].dt.year
             
@@ -201,7 +194,7 @@ def show_temporal_timeline(temporal_data):
             if not heatmap_data.empty:
                 fig = px.imshow(
                     heatmap_data.values,
-                    labels=dict(x="Месец", y="Година", color="Брой писма"),
+                    labels=dict(x=L['ta_month'], y=L['ta_year_str'], color=L['ta_color']),
                     x=[str(col) for col in heatmap_data.columns],
                     y=[str(idx) for idx in heatmap_data.index],
                     aspect="auto",
@@ -213,33 +206,32 @@ def show_temporal_network(temporal_data):
     """
     Display temporal network evolution.
     """
-    st.subheader("Еволюция на комуникационната мрежа")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['ta_net_header'])
     
     letters = temporal_data['letters']
     
     if not letters:
-        st.warning("Няма данни за темпорална мрежа.")
+        st.warning(L['ta_no_net'])
         return
     
-    # Controls
     col1, col2 = st.columns([3, 1])
     
     with col2:
-        st.subheader("Настройки")
+        st.subheader(L['ta_settings'])
         
-        # Time window
         window_size = st.slider(
-            "Размер на времевия прозорец (дни):",
+            L['ta_window_size'],
             30, 365, 90, 30,
             key="temporal_window_size"
         )
         
-        # Animation or static
-        show_animation = st.checkbox("Анимация", False, key="temporal_show_animation")
+        show_animation = st.checkbox(L['ta_animation'], False, key="temporal_show_animation")
         
-        # Layout algorithm
         layout_algorithm = st.selectbox(
-            "Алгоритъм за подредба:",
+            L['ta_layout'],
             ["spring", "circular", "kamada_kawai"],
             index=0,
             key="temporal_layout_algorithm"
@@ -255,12 +247,14 @@ def show_static_temporal_network(letters, window_size, layout_algorithm):
     """
     Show static temporal network for a selected time window.
     """
-    # Create time slider
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
     min_date = min(letter['date'] for letter in letters)
     max_date = max(letter['date'] for letter in letters)
     
     selected_date = st.date_input(
-        "Избери дата за централна точка:",
+        L['ta_select_date'],
         value=min_date.date(),
         min_value=min_date.date(),
         max_value=max_date.date()
@@ -279,7 +273,7 @@ def show_static_temporal_network(letters, window_size, layout_algorithm):
     ]
     
     if not windowed_letters:
-        st.warning(f"Няма писма в периода {window_start.strftime('%Y-%m-%d')} - {window_end.strftime('%Y-%m-%d')}")
+        st.warning(L['ta_no_window'].format(s=window_start.strftime('%Y-%m-%d'), e=window_end.strftime('%Y-%m-%d')))
         return
     
     # Create network
@@ -374,9 +368,9 @@ def show_static_temporal_network(letters, window_size, layout_algorithm):
             
             node_text.append(
                 f"<b>{node}</b><br>"
-                f"Изпратени: {out_degree}<br>"
-                f"Получени: {in_degree}<br>"
-                f"Общо активност: {freq}"
+                f"{L['ta_sent_label'].format(n=out_degree)}<br>"
+                f"{L['ta_received_label'].format(n=in_degree)}<br>"
+                f"{L['ta_activity_label'].format(n=freq)}"
             )
             
             node_sizes.append(max(20, freq * 10))
@@ -396,7 +390,7 @@ def show_static_temporal_network(letters, window_size, layout_algorithm):
     ))
     
     fig.update_layout(
-        title=f'Комуникационна мрежа: {window_start.strftime("%Y-%m-%d")} - {window_end.strftime("%Y-%m-%d")} ({len(windowed_letters)} писма)',
+        title=L['ta_net_title'].format(s=window_start.strftime("%Y-%m-%d"), e=window_end.strftime("%Y-%m-%d"), n=len(windowed_letters)),
         showlegend=False,
         hovermode='closest',
         margin=dict(b=20,l=5,r=5,t=60),
@@ -406,33 +400,35 @@ def show_static_temporal_network(letters, window_size, layout_algorithm):
     
     st.plotly_chart(fig, width='stretch')
     
-    # Show statistics for this window
-    st.subheader(f"Статистики за периода")
+    st.subheader(L['ta_period_stats'])
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Писма", len(windowed_letters))
+        st.metric(L['ta_letters_metric'], len(windowed_letters))
     
     with col2:
-        st.metric("Участници", len(G.nodes()))
+        st.metric(L['ta_participants_metric'], len(G.nodes()))
     
     with col3:
-        st.metric("Връзки", len(G.edges()))
+        st.metric(L['ta_links_metric'], len(G.edges()))
     
     with col4:
         density = nx.density(G) if len(G.nodes()) > 1 else 0
-        st.metric("Плътност", f"{density:.3f}")
+        st.metric(L['ta_density_metric'], f"{density:.3f}")
 
 def show_temporal_analysis(temporal_data):
     """
     Show detailed temporal analysis.
     """
-    st.subheader("Темпорален анализ на комуникациите")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['ta_analysis_header'])
     
     letters = temporal_data['letters']
     
     if not letters:
-        st.warning("Няма данни за темпорален анализ.")
+        st.warning(L['ta_no_analysis'])
         return
     
     # Convert to DataFrame for easier analysis
@@ -441,44 +437,40 @@ def show_temporal_analysis(temporal_data):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Активност по участници")
+        st.subheader(L['ta_activity_header'])
         
-        # Sender activity over time
         sender_activity = df.groupby(['sender', df['date'].dt.to_period('M')]).size().unstack(fill_value=0)
         
         if not sender_activity.empty:
             fig = px.imshow(
                 sender_activity.values,
-                labels=dict(x="Месец", y="Изпращач", color="Брой писма"),
+                labels=dict(x=L['ta_month'], y=L['ta_sender_y'], color=L['ta_color']),
                 x=[str(col) for col in sender_activity.columns],
                 y=[str(idx) for idx in sender_activity.index],
                 aspect="auto",
                 color_continuous_scale="Blues"
             )
-            fig.update_layout(title="Активност на изпращачите във времето")
+            fig.update_layout(title=L['ta_activity_title'])
             st.plotly_chart(fig, width='stretch')
     
     with col2:
-        st.subheader("Комуникационни модели")
+        st.subheader(L['ta_patterns'])
         
-        # Communication patterns
         communication_pairs = df.groupby(['sender', 'addressee']).size().reset_index(name='count')
         communication_pairs = communication_pairs.sort_values('count', ascending=False)
         
-        st.subheader("Топ комуникационни връзки")
+        st.subheader(L['ta_top_links'])
         st.dataframe(communication_pairs.head(10), width='stretch')
         
-        # Temporal distribution
         fig = px.histogram(
             df,
             x='date',
             nbins=20,
-            title='Разпределение на писмата във времето'
+            title=L['ta_letters_dist']
         )
         st.plotly_chart(fig, width='stretch')
     
-    # Network evolution metrics
-    st.subheader("Еволюция на мрежовите метрики")
+    st.subheader(L['ta_evolution_header'])
     
     # Calculate metrics for different time windows
     time_windows = []
@@ -515,7 +507,7 @@ def show_temporal_analysis(temporal_data):
             x=metrics_df['period'],
             y=metrics_df['nodes'],
             mode='lines+markers',
-            name='Брой участници',
+            name=L['ta_participants_trace'],
             yaxis='y'
         ))
         
@@ -523,29 +515,30 @@ def show_temporal_analysis(temporal_data):
             x=metrics_df['period'],
             y=metrics_df['letters'],
             mode='lines+markers',
-            name='Брой писма',
+            name=L['ta_letters_trace'],
             yaxis='y2'
         ))
         
         fig.update_layout(
-            title='Еволюция на мрежата во времето',
-            xaxis=dict(title='Период'),
-            yaxis=dict(title='Брой участници', side='left'),
-            yaxis2=dict(title='Брой писма', side='right', overlaying='y'),
+            title=L['ta_evolution_title'],
+            xaxis=dict(title=L['ta_period_axis']),
+            yaxis=dict(title=L['ta_participants_axis'], side='left'),
+            yaxis2=dict(title=L['ta_letters_axis'], side='right', overlaying='y'),
             legend=dict(x=0.7, y=1)
         )
         
         st.plotly_chart(fig, width='stretch')
         
-        # Show metrics table
-        st.subheader("Детайлни метрики по периоди")
+        st.subheader(L['ta_detail_periods'])
         st.dataframe(metrics_df, width='stretch')
 
 def show_temporal_animation(letters, window_size, layout_algorithm):
     """
     Show animated temporal network (placeholder for now).
     """
-    st.info("Анимацията на темпоралната мрежа ще бъде имплементирана в бъдеща версия. Моля, използвайте статичния режим за сега.")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+    st.info(L['ta_anim_info'])
     
     # For now, show the static version
     show_static_temporal_network(letters, window_size, layout_algorithm)
