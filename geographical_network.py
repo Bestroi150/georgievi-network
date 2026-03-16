@@ -7,33 +7,28 @@ import plotly.graph_objects as go
 import plotly.express as px
 from collections import Counter
 import numpy as np
+from labels import get_labels
 
 def show_geographical_network(data):
     """
     Creates and displays a geographical network analysis showing places as nodes
     connected by communication flows (letters).
-    
-    Nodes: Places mentioned or letter origins/destinations
-    Edges: Letters or trade routes connecting them
-    Visualization: Map with arcs showing communication/trade flows
     """
-    
-    st.subheader("Географска мрежа (Мрежа на места)")
-    st.markdown("""
-    **Възли (Nodes):** Места споменати в писмата или произход/дестинация на писма  
-    **Връзки (Edges):** Писма или търговски маршрути, свързващи местата  
-    **Визуализация:** Карта с дъги, показващи комуникационни или търговски потоци
-    """)
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['geo_subheader'])
+    st.markdown(L['geo_desc'])
     
     # Extract place connections from the data
     place_connections, place_coordinates, place_info = extract_place_connections(data)
     
     if not place_connections:
-        st.warning("Няма достатъчно данни за създаване на географска мрежа.")
+        st.warning(L['geo_no_data'])
         return
     
     # Create tabs for different views
-    map_tab, network_tab, stats_tab = st.tabs(["🗺️ Карта с дъги", "🕸️ Мрежова диаграма", "📊 Статистика"])
+    map_tab, network_tab, stats_tab = st.tabs([L['geo_inner_map'], L['geo_inner_network'], L['geo_inner_stats']])
     
     with map_tab:
         show_geographical_map(place_connections, place_coordinates, place_info)
@@ -43,6 +38,7 @@ def show_geographical_network(data):
     
     with stats_tab:
         show_geographical_statistics(place_connections, place_coordinates, place_info, data)
+
 
 def extract_place_connections(data):
     """
@@ -117,10 +113,13 @@ def show_geographical_map(place_connections, place_coordinates, place_info):
     """
     Display an interactive map showing place connections with arcs.
     """
-    st.subheader("Интерактивна карта с географски връзки")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['geo_map_header'])
     
     if not place_coordinates:
-        st.warning("Няма места с координати за показване на картата.")
+        st.warning(L['geo_no_coords'])
         return
     
     # Create base map
@@ -131,15 +130,15 @@ def show_geographical_map(place_connections, place_coordinates, place_info):
     
     # Map display options in sidebar
     with st.sidebar:
-        st.subheader("🗺️ Настройки на картата")
-        map_height = st.slider("Височина на картата", 500, 1200, 800, 50)
+        st.subheader(L['geo_sidebar_settings'])
+        map_height = st.slider(L['geo_map_height'], 500, 1200, 800, 50)
         # Force fullscreen mode - always enabled
         show_fullscreen = True
-        st.info("🖥️ Картата винаги се показва в пълноекранен режим")
+        st.info(L['geo_fullscreen_info'])
         connection_threshold = st.slider(
-            "Минимален брой връзки:", 
-            1, 
-            max(place_connections.values()) if place_connections else 5, 
+            L['geo_min_conn'],
+            1,
+            max(place_connections.values()) if place_connections else 5,
             1
         )
     
@@ -165,8 +164,8 @@ def show_geographical_map(place_connections, place_coordinates, place_info):
     from folium.plugins import Fullscreen
     Fullscreen(
         position="topright",
-        title="Пълен екран",
-        title_cancel="Изход от пълен екран",
+        title=L['geo_fullscreen'],
+        title_cancel=L['geo_fullscreen_cancel'],
         force_separate_button=True,
     ).add_to(m)
     
@@ -177,10 +176,10 @@ def show_geographical_map(place_connections, place_coordinates, place_info):
         popup_html = f"""
         <div style="font-family: Arial, sans-serif; min-width: 200px;">
             <h4 style="margin: 0 0 10px 0; color: #2E86AB;">{place}</h4>
-            <p style="margin: 5px 0;"><b>Общо споменавания:</b> {info.get('total_mentions', 0)}</p>
-            <p style="margin: 5px 0;"><b>Като изпращач:</b> {info.get('as_sender', 0)}</p>
-            <p style="margin: 5px 0;"><b>Като получател:</b> {info.get('as_addressee', 0)}</p>
-            <p style="margin: 5px 0;"><b>Споменато в писма:</b> {info.get('mentioned', 0)}</p>
+            <p style="margin: 5px 0;"><b>{L['geo_total_mentions']}:</b> {info.get('total_mentions', 0)}</p>
+            <p style="margin: 5px 0;"><b>{L['geo_as_sender']}:</b> {info.get('as_sender', 0)}</p>
+            <p style="margin: 5px 0;"><b>{L['geo_as_addressee']}:</b> {info.get('as_addressee', 0)}</p>
+            <p style="margin: 5px 0;"><b>{L['geo_mentioned_in']}:</b> {info.get('mentioned', 0)}</p>
         </div>
         """
         
@@ -246,7 +245,7 @@ def show_geographical_map(place_connections, place_coordinates, place_info):
         
         # Display using components.html for true full width
         import streamlit.components.v1 as components
-        st.markdown("### 🗺️ Пълноекранна карта на всички споменати места")
+        st.markdown(L['geo_fullscreen_map_hdr'])
         components.html(
             full_width_style + map_html + "</div>", 
             height=map_height + 50,
@@ -262,22 +261,21 @@ def show_geographical_map(place_connections, place_coordinates, place_info):
         )
     
     # Legend
-    st.markdown("### Легенда:")
+    st.markdown("### Legend:" if st.session_state.get('lang', 'bg') == 'en' else "### Легенда:")
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("""
-        **🔵 Сини маркери:** Всички места
-        """)
+        st.markdown(L['geo_legend_blue'])
     with col2:
-        st.markdown("""
-        **🔴 Червени линии:** Връзки между места (дебелина = брой връзки)
-        """)
+        st.markdown(L['geo_legend_red'])
 
 def show_network_diagram(place_connections, place_coordinates, place_info):
     """
     Display a network diagram using Plotly.
     """
-    st.subheader("Мрежова диаграма на места")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['geo_network_diag'])
     
     # Create NetworkX graph
     G = nx.Graph()
@@ -291,7 +289,7 @@ def show_network_diagram(place_connections, place_coordinates, place_info):
         G.add_edge(place1, place2, weight=weight)
     
     if len(G.nodes()) == 0:
-        st.warning("Няма данни за създаване на мрежова диаграма.")
+        st.warning(L['geo_no_diag'])
         return
     
     # Calculate layout
@@ -331,8 +329,8 @@ def show_network_diagram(place_connections, place_coordinates, place_info):
         
         adjacencies = list(G.neighbors(node))
         info = place_info.get(node, {})
-        node_text.append(f"{node}<br>Съседи: {len(adjacencies)}<br>"
-                        f"Споменавания: {info.get('total_mentions', 0)}")
+        node_text.append(f"{node}<br>{L['geo_neighbors']}: {len(adjacencies)}<br>"
+                        f"{L['geo_mentions_count']}: {info.get('total_mentions', 0)}")
         
         node_sizes.append(max(10, info.get('total_mentions', 1) * 3))
     
@@ -346,13 +344,13 @@ def show_network_diagram(place_connections, place_coordinates, place_info):
                                      color='blue',
                                      line=dict(width=2, color='black'))))
     
-    fig.update_layout(title='Географска мрежа на места',
+    fig.update_layout(title=L['geo_net_title'],
                      title_font_size=16,
                      showlegend=False,
                      hovermode='closest',
                      margin=dict(b=20,l=5,r=5,t=40),
                      annotations=[ dict(
-                         text="Размерът на възлите е пропорционален на броя споменавания",
+                         text=L['geo_node_note'],
                          showarrow=False,
                          xref="paper", yref="paper",
                          x=0.005, y=-0.002 ) ],
@@ -365,26 +363,28 @@ def show_geographical_statistics(place_connections, place_coordinates, place_inf
     """
     Display statistics about the geographical network.
     """
-    st.subheader("Статистика за географската мрежа")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['geo_stats_header'])
     
     # General statistics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Общо места", len(place_info))
+        st.metric(L['geo_total_places'], len(place_info))
     
     with col2:
-        st.metric("Места с координати", len(place_coordinates))
+        st.metric(L['geo_places_coords'], len(place_coordinates))
     
     with col3:
-        st.metric("Общо връзки", len(place_connections))
+        st.metric(L['geo_total_conn'], len(place_connections))
     
     with col4:
         total_weight = sum(place_connections.values())
-        st.metric("Общо комуникации", total_weight)
+        st.metric(L['geo_total_comm'], total_weight)
     
-    # Most connected places
-    st.subheader("Най-свързани места")
+    st.subheader(L['geo_top_connected'])
     
     place_connectivity = {}
     for (place1, place2), weight in place_connections.items():
@@ -394,24 +394,23 @@ def show_geographical_statistics(place_connections, place_coordinates, place_inf
     if place_connectivity:
         top_places = sorted(place_connectivity.items(), key=lambda x: x[1], reverse=True)[:10]
         
-        df_connectivity = pd.DataFrame(top_places, columns=['Място', 'Брой връзки'])
+        df_connectivity = pd.DataFrame(top_places, columns=[L['geo_place_col'], L['geo_conn_col']])
         
         st.dataframe(df_connectivity, width='stretch')
         
         # Visualization
-        fig = px.bar(df_connectivity, x='Място', y='Брой връзки', 
-                    title='Най-свързани места')
+        fig = px.bar(df_connectivity, x=L['geo_place_col'], y=L['geo_conn_col'],
+                    title=L['geo_top_connected'])
         fig.update_xaxes(tickangle=45)
         st.plotly_chart(fig, width='stretch')
     
-    # Connection analysis
-    st.subheader("Анализ на връзките")
+    st.subheader(L['geo_conn_analysis'])
     
     if place_connections:
         connections_df = pd.DataFrame([
-            {'Място 1': place1, 'Място 2': place2, 'Брой връзки': weight}
+            {L['geo_place1_col']: place1, L['geo_place2_col']: place2, L['geo_conn_col']: weight}
             for (place1, place2), weight in place_connections.items()
-        ]).sort_values('Брой връзки', ascending=False)
+        ]).sort_values(L['geo_conn_col'], ascending=False)
         
-        st.subheader("Най-силни връзки между места")
+        st.subheader(L['geo_top_links'])
         st.dataframe(connections_df.head(15), width='stretch')
