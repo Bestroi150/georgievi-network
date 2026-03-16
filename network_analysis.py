@@ -5,6 +5,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from labels import get_labels
 
 def show_network_analysis(data):
     """
@@ -13,11 +14,13 @@ def show_network_analysis(data):
 
     :param data: List of dictionaries, each representing a single letter's data.
     """
-    st.header("📬 Мрежов анализ на кореспонденциите")
-    st.markdown("Анализ на мрежата от кореспонденции между различни лица")
-    
-    # Main page controls
-    st.subheader("🎛️ Настройки на мрежата")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.header(L['na_func_header'])
+    st.markdown(L['na_subtitle'])
+
+    st.subheader(L['na_settings'])
     
     # Create columns for control layout
     col1, col2, col3, col4 = st.columns(4)
@@ -25,41 +28,41 @@ def show_network_analysis(data):
     with col1:
         # Minimum connections filter
         min_connections = st.slider(
-            "Минимален брой връзки:",
+            L['na_min_conn'],
             min_value=1,
             max_value=10,
             value=1,
-            help="Показвай само лица с поне толкова връзки",
+            help=L['na_min_conn_help'],
             key="network_min_connections"
         )
     
     with col2:
         # Layout algorithm
         layout_algorithm = st.selectbox(
-            "Алгоритъм за подредба:",
+            L['na_layout'],
             ["forceAtlas2Based", "repulsion", "hierarchicalRepulsion", "stabilization"],
             index=0,
-            help="Различни алгоритми за подредба на мрежата",
+            help=L['na_layout_help'],
             key="network_layout_algorithm"
         )
     
     with col3:
         # Node size scaling
         node_size_factor = st.slider(
-            "Размер на възлите:",
+            L['na_node_size'],
             min_value=10,
             max_value=50,
             value=25,
-            help="Скалиране на размера на възлите",
+            help=L['na_node_size_help'],
             key="network_node_size"
         )
     
     with col4:
         # Show edge weights
         show_edge_weights = st.checkbox(
-            "Показвай тегла на връзките",
+            L['na_show_weights'],
             value=True,
-            help="Показвай броя писма между лицата",
+            help=L['na_show_weights_help'],
             key="network_show_weights"
         )
     
@@ -180,9 +183,9 @@ def show_network_analysis(data):
         out_degree = G_filtered.out_degree(node_label)
         node["title"] = f"""
         <b>{node_label}</b><br>
-        Общо връзки: {degree}<br>
-        Получени: {in_degree}<br>
-        Изпратени: {out_degree}
+        {L['na_total_tooltip']}: {degree}<br>
+        {L['na_received_tooltip']}: {in_degree}<br>
+        {L['na_sent_tooltip']}: {out_degree}
         """
 
     # --- 5. Style Edges with Different Colors and Weights ---
@@ -202,7 +205,7 @@ def show_network_analysis(data):
         
         # Edge title with weight information
         if show_edge_weights:
-            edge["title"] = f"{src} → {dst}<br>Писма: {weight}"
+            edge["title"] = f"{src} → {dst}<br>{L['na_letters_label']}: {weight}"
         else:
             edge["title"] = f"{src} → {dst}"
 
@@ -364,7 +367,7 @@ def show_network_analysis(data):
     net.set_options(selected_options)
 
     # --- 7. Render the Network in Streamlit ---
-    st.subheader("🔗 Интерактивна мрежа")
+    st.subheader(L['na_interactive_net'])
     
     try:
         # Generate HTML content
@@ -405,29 +408,27 @@ def show_network_analysis(data):
             """
             components.html(enhanced_html, height=740, scrolling=True)
         except Exception as e:
-            st.error(f"⚠️ Грешка при генериране на мрежовия анализ: {e}")
-    except Exception as e:
-        st.error(f"⚠️ Грешка при генериране на мрежовия анализ: {e}")
+            st.error(f"{L['na_error']}: {e}")
 
     # --- 8. Additional Analysis Sections ---
-    
+
     # Top correspondents
-    st.subheader("📊 Топ кореспонденти")
-    
+    st.subheader(L['na_top_corr'])
+
     degree_df = pd.DataFrame([
         {
-            'Лице': node,
-            'Общо връзки': degree_dict_filtered[node],
-            'Получени писма': G_filtered.in_degree(node),
-            'Изпратени писма': G_filtered.out_degree(node)
+            L['na_person_col']: node,
+            L['na_total_conn_col']: degree_dict_filtered[node],
+            L['na_received_col']: G_filtered.in_degree(node),
+            L['na_sent_col']: G_filtered.out_degree(node)
         }
         for node in degree_dict_filtered.keys()
-    ]).sort_values('Общо връзки', ascending=False)
-    
+    ]).sort_values(L['na_total_conn_col'], ascending=False)
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
-        st.write("**Топ 10 по общо връзки:**")
+        st.write(f"**{L['na_top10_label']}**")
         st.dataframe(
             degree_df.head(10),
             use_container_width=True,
@@ -437,14 +438,14 @@ def show_network_analysis(data):
     with col2:
         # Centrality measures
         if len(G_filtered.nodes()) > 1:
-            st.write("**Мерки за централност:**")
+            st.write(f"**{L['na_centrality_label']}**")
             
             betweenness = nx.betweenness_centrality(G_filtered)
             closeness = nx.closeness_centrality(G_filtered)
             
             centrality_df = pd.DataFrame([
                 {
-                    'Лице': node,
+                    L['na_person_col']: node,
                     'Betweenness': f"{betweenness.get(node, 0):.3f}",
                     'Closeness': f"{closeness.get(node, 0):.3f}"
                 }
@@ -457,8 +458,7 @@ def show_network_analysis(data):
                 hide_index=True
             )
 
-    # Network visualization charts
-    st.subheader("📈 Анализ на разпределението")
+    st.subheader(L['na_dist_analysis'])
     
     col1, col2 = st.columns(2)
     
@@ -467,8 +467,8 @@ def show_network_analysis(data):
         degrees = list(degree_dict_filtered.values())
         fig_hist = px.histogram(
             x=degrees,
-            title="Разпределение на връзките",
-            labels={'x': 'Брой връзки', 'y': 'Честота'},
+            title=L['na_conn_dist_title'],
+            labels={'x': L['na_conn_dist_x'], 'y': L['na_conn_dist_y']},
             color_discrete_sequence=['#2E86AB']
         )
         fig_hist.update_layout(
@@ -482,11 +482,11 @@ def show_network_analysis(data):
         top_10 = degree_df.head(10)
         fig_bar = px.bar(
             top_10,
-            x='Общо връзки',
-            y='Лице',
+            x=L['na_total_conn_col'],
+            y=L['na_person_col'],
             orientation='h',
-            title="Топ 10 лица по връзки",
-            color='Общо връзки',
+            title=L['na_top10_title'],
+            color=L['na_total_conn_col'],
             color_continuous_scale='Blues'
         )
         fig_bar.update_layout(
@@ -497,7 +497,7 @@ def show_network_analysis(data):
 
 # Example usage within a Streamlit app
 if __name__ == "__main__":
-    st.title("📬 Мрежов анализ на кореспонденциите")
-    st.markdown("Усъвършенстван анализ на мрежата от кореспонденции")
+    st.title(L['na_func_header'] if 'L' in dir() else '📬 Correspondence Network Analysis')
+    st.markdown(L['na_advanced'] if 'L' in dir() else 'Advanced correspondence network analysis')
 
 
