@@ -6,31 +6,27 @@ import plotly.graph_objects as go
 import plotly.express as px
 from collections import Counter
 import numpy as np
+from labels import get_labels
 
 def show_topics_keywords_analysis(data):
     """
     Creates and displays topic and keyword co-occurrence network analysis.
-    
-    Analyzes relationships between main topics and keywords across letters.
     """
-    
-    st.subheader("Анализ на теми и ключови думи")
-    st.markdown("""
-    **Анализ:** Мрежа на съвместно срещане на теми и ключови думи в писмата  
-    **Възли:** Основни теми и ключови думи  
-    **Връзки:** Съвместно споменаване в едно и също писмо  
-    **Размер на възела:** Честота на споменаване
-    """)
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['tk_subheader'])
+    st.markdown(L['tk_desc'])
     
     # Extract topics and keywords data
     topics_data, cooccurrence_data = extract_topics_keywords_data(data)
     
     if not topics_data:
-        st.warning("Няма достатъчно данни за анализ на теми и ключови думи.")
+        st.warning(L['tk_no_data'])
         return
     
     # Create tabs for different views
-    network_tab, frequency_tab, analysis_tab = st.tabs(["🕸️ Мрежа", "📊 Честота", "🔍 Анализ"])
+    network_tab, frequency_tab, analysis_tab = st.tabs([L['tk_inner_network'], L['tk_inner_freq'], L['tk_inner_analysis']])
     
     with network_tab:
         show_topics_network(topics_data, cooccurrence_data)
@@ -87,10 +83,13 @@ def show_topics_network(topics_data, cooccurrence_data):
     """
     Display interactive network of topics and keywords using Plotly.
     """
-    st.subheader("Мрежа на теми и ключови думи")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['tk_network_header'])
     
     if not cooccurrence_data:
-        st.warning("Няма връзки между темите за визуализация.")
+        st.warning(L['tk_no_links'])
         return
     
     # Create NetworkX graph
@@ -108,17 +107,17 @@ def show_topics_network(topics_data, cooccurrence_data):
     col1, col2 = st.columns([3, 1])
     
     with col2:
-        st.subheader("Настройки")
+        st.subheader(L['tk_settings'])
         min_cooccurrence = st.slider(
-            "Минимално съвместно срещане:", 
-            1, 
-            max(cooccurrence_data.values()) if cooccurrence_data else 5, 
+            L['tk_min_cooc'],
+            1,
+            max(cooccurrence_data.values()) if cooccurrence_data else 5,
             1,
             key="topics_min_cooccurrence"
         )
         
         layout_algorithm = st.selectbox(
-            "Алгоритъм за подредба:",
+            L['tk_layout'],
             ["spring", "circular", "kamada_kawai"],
             index=0,
             key="topics_layout_algorithm"
@@ -129,7 +128,7 @@ def show_topics_network(topics_data, cooccurrence_data):
         filtered_edges = [(a, b) for (a, b), w in cooccurrence_data.items() if w >= min_cooccurrence]
         
         if not filtered_edges:
-            st.warning("Няма връзки, които отговарят на критерия.")
+            st.warning(L['tk_no_match'])
             return
         
         # Create filtered graph
@@ -182,8 +181,8 @@ def show_topics_network(topics_data, cooccurrence_data):
                 
                 node_text.append(
                     f"<b>{node}</b><br>"
-                    f"Честота: {frequency}<br>"
-                    f"Връзки: {connections}"
+                    f"{L['tk_freq_label'].format(n=frequency)}<br>"
+                    f"{L['tk_conn_label'].format(n=connections)}"
                 )
                 
                 node_sizes.append(max(20, frequency * 10))
@@ -201,18 +200,18 @@ def show_topics_network(topics_data, cooccurrence_data):
                 color=node_colors,
                 colorscale='Viridis',
                 showscale=True,
-                colorbar=dict(title="Честота"),
+                colorbar=dict(title=L['tk_colorbar_title']),
                 line=dict(width=2, color='black')
             )
         ))
         
         fig.update_layout(
-            title='Мрежа на теми и ключови думи',
+            title=L['tk_net_title'],
             showlegend=False,
             hovermode='closest',
             margin=dict(b=20,l=5,r=5,t=40),
             annotations=[dict(
-                text=f"Показани {len(G_filtered.nodes())} теми с минимум {min_cooccurrence} съвместни споменавания",
+                text=L['tk_shown'].format(n=len(G_filtered.nodes()), m=min_cooccurrence),
                 showarrow=False,
                 xref="paper", yref="paper",
                 x=0.005, y=-0.002
@@ -227,95 +226,100 @@ def show_topics_frequency(topics_data):
     """
     Display frequency analysis of topics and keywords.
     """
-    st.subheader("Честота на теми и ключови думи")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['tk_freq_header'])
     
     topic_freq = topics_data['topic_frequency']
     
     if not topic_freq:
-        st.warning("Няма данни за честота на темите.")
+        st.warning(L['tk_no_freq'])
         return
     
     # Create frequency DataFrame
     freq_df = pd.DataFrame(
         list(topic_freq.items()),
-        columns=['Тема/Ключова дума', 'Честота']
-    ).sort_values('Честота', ascending=False)
+        columns=[L['tk_topic_col'], L['tk_freq_col']]
+    ).sort_values(L['tk_freq_col'], ascending=False)
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Топ 20 най-чести теми")
+        st.subheader(L['tk_top20'])
         top_topics = freq_df.head(20)
         st.dataframe(top_topics, width='stretch')
     
     with col2:
-        st.subheader("Разпределение на честотата")
+        st.subheader(L['tk_freq_dist'])
         fig = px.bar(
             top_topics.head(15),
-            x='Честота',
-            y='Тема/Ключова дума',
+            x=L['tk_freq_col'],
+            y=L['tk_topic_col'],
             orientation='h',
-            title='Най-чести теми и ключови думи'
+            title=L['tk_freq_dist_title']
         )
         fig.update_yaxes(categoryorder="total ascending")
         st.plotly_chart(fig, width='stretch')
     
-    # Statistics
-    st.subheader("Статистики")
+    st.subheader(L['tk_stats'])
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("Общо теми/думи", len(topic_freq))
+        st.metric(L['tk_total'], len(topic_freq))
     
     with col2:
-        st.metric("Средна честота", f"{np.mean(list(topic_freq.values())):.1f}")
+        st.metric(L['tk_avg_freq'], f"{np.mean(list(topic_freq.values())):.1f}")
     
     with col3:
-        st.metric("Най-честа", max(topic_freq.values()))
+        st.metric(L['tk_max_freq'], max(topic_freq.values()))
     
     with col4:
         unique_topics = sum(1 for freq in topic_freq.values() if freq == 1)
-        st.metric("Уникални (1x)", unique_topics)
+        st.metric(L['tk_unique'], unique_topics)
 
 def show_topics_analysis(topics_data, cooccurrence_data):
     """
     Show detailed analysis of topic relationships.
     """
-    st.subheader("Детайлен анализ на връзките")
+    lang = st.session_state.get('lang', 'bg')
+    L = get_labels(lang)
+
+    st.subheader(L['tk_conn_analysis'])
     
     if not cooccurrence_data:
-        st.warning("Няма данни за анализ на връзките.")
+        st.warning(L['tk_no_conn'])
         return
     
     # Create co-occurrence DataFrame
     cooc_df = pd.DataFrame([
         {
-            'Тема 1': topic1,
-            'Тема 2': topic2,
-            'Съвместни споменавания': weight
+            L['tk_topic1_col']: topic1,
+            L['tk_topic2_col']: topic2,
+            L['tk_cooc_col']: weight
         }
         for (topic1, topic2), weight in cooccurrence_data.items()
-    ]).sort_values('Съвместни споменавания', ascending=False)
+    ]).sort_values(L['tk_cooc_col'], ascending=False)
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Най-силни връзки")
+        st.subheader(L['tk_strong_links'])
         st.dataframe(cooc_df.head(15), width='stretch')
     
     with col2:
-        st.subheader("Разпределение на силата на връзките")
+        st.subheader(L['tk_conn_dist'])
         fig = px.histogram(
             cooc_df,
-            x='Съвместни споменавания',
+            x=L['tk_cooc_col'],
             nbins=20,
-            title='Разпределение на съвместните споменавания'
+            title=L['tk_conn_dist_title']
         )
         st.plotly_chart(fig, width='stretch')
     
     # Network metrics
     if cooccurrence_data:
-        st.subheader("Мрежови метрики")
+        st.subheader(L['tk_metrics'])
         
         G = nx.Graph()
         for (topic1, topic2), weight in cooccurrence_data.items():
@@ -328,34 +332,32 @@ def show_topics_analysis(topics_data, cooccurrence_data):
         
         # Create centrality DataFrame
         centrality_df = pd.DataFrame({
-            'Тема': list(degree_centrality.keys()),
-            'Степенна централност': list(degree_centrality.values()),
-            'Посредническа централност': list(betweenness_centrality.values()),
-            'Близостна централност': list(closeness_centrality.values())
+            L['tk_topic_row']: list(degree_centrality.keys()),
+            L['tk_degree_centrality']: list(degree_centrality.values()),
+            L['tk_betweenness']: list(betweenness_centrality.values()),
+            L['tk_closeness']: list(closeness_centrality.values())
         }).round(3)
         
-        # Sort by degree centrality
-        centrality_df = centrality_df.sort_values('Степенна централност', ascending=False)
+        centrality_df = centrality_df.sort_values(L['tk_degree_centrality'], ascending=False)
         
-        st.subheader("Топ 15 теми по централност")
+        st.subheader(L['tk_top15'])
         st.dataframe(centrality_df.head(15), width='stretch')
         
-        # Show network statistics
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Възли в мрежата", G.number_of_nodes())
+            st.metric(L['tk_nodes'], G.number_of_nodes())
         
         with col2:
-            st.metric("Връзки в мрежата", G.number_of_edges())
+            st.metric(L['tk_edges'], G.number_of_edges())
         
         with col3:
             density = nx.density(G)
-            st.metric("Плътност", f"{density:.3f}")
+            st.metric(L['tk_density'], f"{density:.3f}")
         
         with col4:
             if nx.is_connected(G):
                 avg_path = nx.average_shortest_path_length(G)
-                st.metric("Средна дистанция", f"{avg_path:.2f}")
+                st.metric(L['tk_avg_path'], f"{avg_path:.2f}")
             else:
-                st.metric("Компоненти", nx.number_connected_components(G))
+                st.metric(L['tk_components'], nx.number_connected_components(G))
